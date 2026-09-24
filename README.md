@@ -1,146 +1,43 @@
-# Action-recognition compression research and paper validation
+# pre_updated_v2 — nén hướng nhiệm vụ cho Action Recognition và Object Detection
 
-This `preprocessing` checkout is the development copy for the paper-validation
-work. The separate `pre_updated_v2` checkout is intentionally unchanged.
-The [paper-validation plan](docs/PAPER_VALIDATION_PLAN.md) specifies the
-follow-up controls, unseen-analyzer test and runtime benchmark. The
-[exploratory 1,000-clip reanalysis](results/paper_validation_1000/README.md)
-compares all fixed candidates and frozen A/B/C policies on the existing V2
-records; it is **not** a fresh holdout.
+Repo này nghiên cứu can thiệp miền pixel **trước codec chuẩn** để giảm bitrate mà vẫn giữ hiệu năng tác vụ. Hai đường đánh giá độc lập:
 
-V2 adds a shared-bitstream selector targeting **both r2plus1d_18 and r3d_18**.
-See [the V2 pilot protocol](docs/RUN_DESIGN_DUAL_CODEC_SEARCH_V2.md),
-[runner](ops/dual_codec_search.py) and [Kaggle cell](kaggle/dual_codec_search_cell.sh).
-Fit/calibration/development are separated; A/B/C share real-codec candidate
-measurements. The 1,000-clip TEST evaluation is now complete; see
-[the V2 results](results/dual_codec_search_v2_confirm_1000/README.md).
-Both analyzers improve on both codecs, but **neither codec reaches the
-predeclared Top-1 BD-rate below -15% on both analyzers**. These TEST clips
-were previously inspected during V1 work, so this is a paired comparative
-replication, not a fresh independent holdout.
+- **AR / Kinetics:** chọn một trong sáu biểu diễn clip bằng policy V2-C đã khóa; mã hóa H.264 hoặc H.265, giải mã, rồi đo Top-1 bằng hai mạng `r2plus1d_18` và `r3d_18` đóng băng.
+- **OD / COCO:** detector phía encoder tạo vùng cần bảo vệ; làm mờ nền ngoài vùng đó trước codec, rồi dùng một detector khác phía decoder để đo COCO mAP. Đây **không** phải V2-C áp dụng sang ảnh.
 
-The material below and `results/codec_search_ar_confirm_1000` describe inherited
-V1 work. Its large primary-only gain does NOT establish the V2 dual-model target.
+## Kết quả AR được giữ trong `results/`
 
-## Inherited V1 project
+[Gói V2-C 1.000 clip](results/dual_codec_search_v2_confirm_1000/README.md) là gói kết quả chính duy nhất trong thư mục `results/`. Cùng 1.000 clip TEST được ghép cặp giữa hai codec, năm QP `30,35,40,45,50`, và 2.000 lần bootstrap theo **video nguồn**; BD-rate được tính sau khi gộp hai shard 500 clip, không lấy trung bình BD-rate của shard.
 
-Line riêng cho task **Object Detection** của VCM: ảnh → preprocessing → codec đóng băng
-(All-Intra) → decode → detector đóng băng → mAP. Đích là một con số BD-rate âm trên **trục mAP**
-để điền ô Object Detection còn trống của báo cáo MPEG w21834.
+| Codec | Analyzer | BD-rate Top-1 | Bootstrap 95% | BD-accuracy (điểm %) |
+|---|---|---:|---:|---:|
+| H.264 | `r2plus1d_18` | **−22,01%** | [−23,85%, −20,24%] | +10,40 |
+| H.264 | `r3d_18` | −14,47% | [−15,69%, −13,21%] | +6,09 |
+| H.265 | `r2plus1d_18` | −14,03% | [−15,39%, −12,77%] | +9,92 |
+| H.265 | `r3d_18` | −8,72% | [−9,62%, −7,82%] | +5,53 |
 
-Repo này phát triển nhánh OD thành một đường đo độc lập, đồng thời thêm primitive
-**spatio-temporal importance tube** để cơ chế "giữ vật, giảm nền" dùng được cho cả
-ảnh (`T=1`) và action recognition (`T>1`).
+**Quyết định theo tiêu chí đặt trước:** chưa đạt yêu cầu cả hai analyzer đều có BD-rate Top-1 **< −15%** ở ít nhất một codec. H.264 gần nhất nhưng `r3d_18` còn thiếu 0,53 điểm phần trăm. Cả hai analyzer đều tham gia phát triển policy; hơn nữa TEST này đã được xem trong nghiên cứu V1. Đây là phép so sánh ghép cặp trên tập đã biết, **không phải** kiểm chứng độc lập trên holdout mới.
 
-## AR codec-search confirmation (2026-09-24)
+Các JSON tổng hợp [H.264](results/dual_codec_search_v2_confirm_1000/h264_result.json) và [H.265](results/dual_codec_search_v2_confirm_1000/h265_result.json) giữ curve, fingerprint và control đồng thời để kiểm toán. Gói kết quả V1 riêng đã được bỏ khỏi nhánh hiện tại; mã và cấu hình V1 cần cho mẫu ghép cặp vẫn được giữ. Những lần Kaggle lỗi không được đưa vào `results/`.
 
-Nhánh codec-search đã khóa policy trước khi đánh giá 1.000 clip TEST giống nhau
-cho H.264/H.265. Trên **analyzer mục tiêu `r2plus1d_18`**, BD-rate Top-1 là
-**−24,88% H.264** (bootstrap 95% [−26,82%, −22,94%]) và **−16,09% H.265**
-([−17,44%, −14,74%]). Trên analyzer độc lập `r3d_18`, cải thiện chỉ khoảng
-−1% và CI chứa 0: **không được xem đây là kết quả tổng quát cho mọi mô hình AR**.
-Mã nguồn, policy, bản ghi từng clip và provenance nằm trong
-[`results/codec_search_ar_confirm_1000/`](results/codec_search_ar_confirm_1000/README.md).
+## Kiểm tra ảnh ghép cặp và OD
 
-## Những sửa đổi chính của `pre_updated`
+[Notebook Kinetics cuối cùng](https://www.kaggle.com/code/qktttttttttt/paper-ar-visual-20260924) đã hoàn tất trên CPU: tám clip được chọn bằng hash ID trước khi xem nhãn/kết quả, cùng tám ID cho hai codec, cùng QP 40 và các frame 4/8/12. Panel gồm nguồn, codec-only và stream V2-C; bpp mã hóa lại khớp chính xác cache gốc. Ảnh được phóng bằng nearest-neighbor để hiển thị, không làm đổi pixel mã hóa. **Tám clip chỉ để minh họa**, không thay phép đo Top-1 trên 1.000 clip.
 
-- evaluator COCO mAP nằm trực tiếp trong `evaluate.py`; OD không còn rơi nhầm vào
-  evaluator classification;
-- paired image bootstrap **có hoàn lại**, giữ multiplicity và xuất CI riêng cho
-  từng arm;
-- detector tạo mask mặc định là MobileNet-FPN, detector đánh giá là ResNet50-FPN
-  (held-out analyzer; on-teacher chỉ được bật bằng cờ explicit);
-- COCO dùng letterbox giữ aspect ratio thay vì squash ảnh;
-- `loss.rho` của UP-VCM đã được nối thật vào objective;
-- saliency gate AR tại eval dùng pseudo-label của source clip, không đọc ground-truth;
-- `ImportanceTubeSuppress`: protected core exact-identity, feathered boundary,
-  motion-gated temporal background stabilization;
-- fixture COCO tự sinh và khai báo đầy đủ `Pillow`/`pycocotools`.
+[Notebook COCO val2017](https://www.kaggle.com/code/baoancut/paper-coco-visual-20260924) cũng đã hoàn tất. Đây là pilot OD **100 ảnh** tại 320 px, QP `35,40,45`, `blur4` ngoài vùng bảo vệ so với codec-only. Detector tạo mask là Faster R-CNN MobileNet; detector đánh giá độc lập là Faster R-CNN ResNet50. Tám panel ảnh được chọn bằng ID trong tập đã định, có mask và bản đồ sai khác RGB dùng chung thang 0–64.
 
-Lineage ban đầu tách ra sau khi **bốn hướng học-máy liên tiếp đo ra âm** trên chế độ ảnh:
+| Codec OD | mAP tại QP 40: codec-only → `blur4` | BD-rate theo mAP, ba QP | Bootstrap 95%, 100 lần lấy mẫu ảnh |
+|---|---:|---:|---:|
+| H.264 | 0,1958 → 0,1886 | **−13,55%** | [−22,20%, −3,00%] |
+| H.265 | 0,2126 → 0,1973 | −7,81% | [−16,09%, +2,66%] |
 
-| Hướng | Kết quả đo |
-|---|---|
-| Checkpoint AR zero-shot trên ảnh | vô hại cho mAP (ratio 1,02–1,03) nhưng **+2,29 % bit** (CI [+0,43,+4,86]), sandwich **+6,71 %** |
-| Train PRE cho ảnh (proxy intra + loss detector) | **phá 25 % mAP** trước cả codec (ratio 0,75) |
-| Đầu không gian (AR) | −5 pp so với kỷ lục |
-| Temporal POST (AR) | −3 pp so với kỷ lục |
+Ở cùng QP, mAP giảm nhẹ; BD-rate âm phản ánh tiết kiệm bit theo toàn đường rate–mAP. H.265 còn bất định vì khoảng bootstrap cắt 0. Pilot 100 ảnh này không phải xác nhận trên toàn COCO val2017 và không chứng minh một phương pháp chung cải thiện cả OD lẫn AR. Artifact đầy đủ nằm ở output Kaggle, **không** được đưa vào `results/` như kết quả chính.
 
-Đọc chung: cơ chế kiếm bit của thiết kế AR là **thời gian**; ở ảnh (T=1) nó vô dụng, còn lại chỉ
-là các module *thêm/sửa* cấu trúc — thứ mAP không thưởng. Nên hướng đi ở đây đảo ngược:
-**bỏ nền, giữ vật**, không dùng editor học được.
+## Mã và tái lập
 
-## Tài liệu
+- [Thiết kế và giới hạn nghiên cứu](docs/PAPER_VALIDATION_PLAN.md): phép so sánh cố định, bootstrap ghép cặp, phép thử analyzer thứ ba và chi phí chạy còn phải đo.
+- [Policy và runner V2](ops/dual_codec_search_confirm_1000.py), [tạo panel Kinetics](ops/paper_ar_visual.py), [OD pilot và panel COCO](ops/probe_background_suppression.py).
+- [Phân tích ablation](ops/paper_validation.py), [runner `mc3_18` chưa đo](ops/paper_heldout_mc3.py), [runner thời gian chạy chưa đo](ops/paper_runtime.py). Có mã không đồng nghĩa đã có kết quả thực nghiệm.
+- [Cell Kaggle AR](kaggle/paper_ar_visual_cell.sh), [cell Kaggle OD](kaggle/paper_coco_visual_cell.sh) và [công cụ tạo notebook riêng tư](ops/push_paper_visual.py). Cell trong repo này clone `munnn01/pre_updated_v2` tại commit được chỉ định. Hai notebook hoàn tất ở trên được chạy từ bản phát triển `test_pre` với cùng logic đánh giá; không được gọi là lượt chạy lại trên commit repo này.
 
-- **Spec:** [`docs/OD_DESIGN.md`](docs/OD_DESIGN.md) — bài toán, bằng chứng, thiết kế R0 (0 tham số)
-  và R1 (gate học được ~1–2k tham số), interface, tiêu chí thành công/phản chứng.
-- **Kế hoạch implement:** [`docs/superpowers/plans/2026-09-17-od-preprocessing.md`](docs/superpowers/plans/2026-09-17-od-preprocessing.md)
-  — 6 task theo TDD, có decision gate giữa R0 và R1.
-
-## Trạng thái
-
-| Bước | Trạng thái |
-|---|---|
-| Core detection (data, analyzer, probe, pusher) | ✅ đã port, test xanh |
-| R0 — mask từ detector + suppression nền | ✅ implement + test (`tests/test_mask_suppress.py`) |
-| R0 full n=500, 5 QP, held-out detector | ✅ point estimate: H.264 −9.07%, H.265 −5.44%; chờ CI |
-| R0.5 — dual-region PRE + high-QP Gaussian POST | ✅ code; screening design đã khóa |
-| R0.5 halo8 + POST σ=1, held-out n=500 | ✅ QP45 chốt: H.264 −13.15%, H.265 −8.02%; gap PASS |
-| R1 — gate học được | ⏸ chỉ mở nếu R0 dương |
-| Importance-tube probe trên Kinetics | ❌ n=20: H.264 +9.80%, H.265 +8.57%; không scale detector-only tube |
-| AR saliency V1, 3 evaluator × 2 codec | ❌ mọi BD-rate dương; best +25.10/+18.50%, source Top-1 giảm 19--23 pp |
-| AR guarded saliency-motion V2 | 🚀 đã implement; source-confidence fallback, chờ screen 2 family × 3 evaluator |
-
-## Chạy
-
-```bash
-pytest -q
-
-# Một cell Kaggle chạy cả OD + AR với đúng hai dataset chuẩn
-python ops/push_joint_probe.py --commit <sha> --account <acct> \
-    --profile quick --slug pre-updated-joint-od-ar
-
-# R0.5 screening: identity/mild-ROI PRE x identity/Gaussian POST
-python ops/push_joint_probe.py --commit <sha> --account <acct> --skip-ar \
-    --profile quick --n-od 100 --qps 30,35,40,45,50 --od-sigmas 4 \
-    --od-roi-sigmas 0,1 --od-post-sigmas 0,1 --od-post-min-qp 45 \
-    --bootstrap 0 --slug pre-updated-od-dualregion
-
-# R0 trên Kaggle (eval-only, không train, ~20 phút)
-python ops/push_detection_probe.py --commit <sha> --account <acct> \
-    --script ops/probe_background_suppression.py \
-    --extra-args "--sigmas 4,8,16 --score 0.5 --dilate 0.15" \
-    --ckpt-dataset "" --n-images 500 --size 320 --bootstrap 1000 \
-    --slug u9-probe-bgsuppress
-
-# Probe chung OD→AR, không train (cần ffmpeg + index Kinetics)
-python ops/probe_action_tubes.py --index data/index/kinetics_hash_split.json \
-    --n-clips 200 --sigmas 4,8 --temporal-strengths 0,0.5
-
-# AR V2: saliency + motion, mild blend, tự lùi về identity nếu teacher suy giảm
-python ops/push_joint_probe.py --commit <sha> --account <acct> --skip-od \
-    --profile confirmatory --ar-probe guarded --ar-split val --n-ar 200 \
-    --ar-backbone mc3_18 --ar-guard-protect-fractions 0.65,0.8 \
-    --ar-guard-motion-fractions 0.5 --ar-guard-max-blends 0.25,0.4 \
-    --ar-guard-sigma 2 --ar-guard-retention 0.97 \
-    --ar-guard-temporal-strength 0.1 \
-    --slug preupd-ar-guard-context-mc3-v1
-
-# OD checkpoint: evaluator tích hợp, COCO mAP + bootstrap CI
-python evaluate.py --config configs/sandwich_coco_det.yaml \
-    --ckpt outputs/sandwich_coco_det/checkpoints/preprocessor.pth \
-    eval.bootstrap=1000
-```
-
-Cell copy/paste và cấu hình `quick`/`confirmatory`: [`docs/KAGGLE_JOINT_CELL.md`](docs/KAGGLE_JOINT_CELL.md).
-
-## Ràng buộc (áp cho mọi thí nghiệm ở đây)
-
-- Codec/bitstream/decoder **đóng băng**; chỉ can thiệp ở miền pixel trước encode và sau decode.
-- Các kết quả OD/R0 ở phần trên dùng **held-out analyzer + paired bootstrap CI**
-  và luật gap (`≥ −0.05` mọi QP, cả hai codec). Nhánh AR codec-search báo riêng
-  analyzer mục tiêu và analyzer độc lập; số mục tiêu không chứng minh transfer.
-- Ảnh là đơn khung: `T=1`, codec intra-only (`codec.inter: false`).
-- Box của torchvision là **xyxy**, COCO cần **xywh** — luôn đi qua `_coco_box`.
-- Mọi split trong index phải **khác rỗng**: val rỗng sẽ âm thầm tắt model selection và early stopping.
-- Run dài trên Kaggle: ghi diagnostics ra **file** trong output dir (cell bị cap 12h mất sạch stdout).
+Các bước cần làm trước khi tuyên bố khả năng tổng quát: đánh giá bitstream đã chọn bằng analyzer thứ ba chưa tham gia phát triển, thử trên nguồn video mới tách hẳn, và đo chi phí của **toàn bộ** sáu phép encode/decode cùng suy luận tại encoder. Chưa có số liệu cho ba bước đó.

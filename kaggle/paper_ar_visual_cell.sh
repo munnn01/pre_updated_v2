@@ -3,7 +3,7 @@ export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=2
 export OPENBLAS_NUM_THREADS=2
 REF="__REF__"
-REPO=/kaggle/working/test_pre
+REPO=/kaggle/working/pre_updated_v2
 OUT=/kaggle/working/outputs/paper_ar_visual
 mkdir -p "$OUT" /kaggle/working/paper_cache
 finish() {
@@ -16,7 +16,7 @@ finish() {
   exit "$rc"
 }
 trap finish EXIT
-git clone -q https://github.com/munnn01/test_pre.git "$REPO"
+git clone -q https://github.com/munnn01/pre_updated_v2.git "$REPO"
 git -C "$REPO" checkout -q "$REF"
 cd "$REPO"
 python -c 'import torch, torchvision, cv2, PIL; print("torch", torch.__version__, "cuda", torch.cuda.is_available(), "visual-only CPU run")'

@@ -103,9 +103,15 @@ This is an exploratory OD pilot with a different intervention from V2 C; it
 does not establish that the AR selector improves OD, and its mAP/BD-rate must
 not be compared numerically with Kinetics Top-1/BD-rate.
 
-The deployed notebooks are private and commit-pinned. The Kinetics notebook
+The completed visual notebooks were run from the `test_pre` development copy;
+the templates in this repository now clone `pre_updated_v2` for future runs.
+The Kinetics notebook
 uses the private derived cache dataset `qktttttttttt/v2-paper-cache-1000-20260924`
 and the public source videos; the COCO notebook uses
 `awsaf49/coco-2017-dataset`. Both write PNG panels, a selection manifest,
-and a compressed output artifact. A notebook being queued/running is not a
-completed scientific result; inspect its final status and artifacts first.
+and a compressed output artifact. The final Kinetics gallery completed with
+eight paired clips per codec and exact cache/re-encode bpp agreement. The COCO
+pilot completed on 100 images; its H.264 `blur4` mAP BD-rate was -13.55%
+(100-draw paired-image bootstrap 95% interval -22.20% to -3.00%), while H.265
+was -7.81% (-16.09% to +2.66%). This pilot used a different OD intervention
+and is not evidence that the V2 AR selector transfers to detection.
