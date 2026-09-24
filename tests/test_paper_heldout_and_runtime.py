@@ -2,6 +2,9 @@
 
 import math
 
+import torch
+
+from ops import paper_heldout_mc3, paper_runtime
 from ops.codec_search_ar import QPS
 from ops.paper_heldout_mc3 import curves
 from ops.paper_heldout_mc3 import summarize as heldout_summary
@@ -43,3 +46,56 @@ def test_runtime_summary_reports_per_clip_overhead():
     assert report["n"] == 2
     assert report["overhead_ratio"]["median"] == 5.5
     assert report["full_selector_s"]["mean"] == 8.
+
+
+class _FakeDataset:
+    def __init__(self):
+        self.samples = [{"path": "fake/class_clip.mp4"}]
+
+    def __getitem__(self, _index):
+        return (torch.ones(3, 16, 128, 128) * .5, 1,
+                {"sequence_id": "class/clip.mp4"})
+
+
+class _FakeCodec:
+    def _encode_decode_clip(self, candidate, qp):
+        return candidate, .3
+
+
+def test_mc3_runner_keeps_frozen_choice(monkeypatch):
+    class Capture:
+        def read(self):
+            return True, None
+
+        def release(self):
+            pass
+
+    monkeypatch.setattr(paper_heldout_mc3.cv2, "VideoCapture", lambda _path: Capture())
+    monkeypatch.setattr(paper_heldout_mc3, "select", lambda *_args: 1)
+    monkeypatch.setattr(paper_heldout_mc3, "timed_inference",
+                        lambda *_args: (1, .01))
+    cache = {"sequence_id": "class/clip.mp4", "measurements": [
+        {"qp": qp, "candidates": [{"name": "identity128", "bpp": .3},
+                                   {"name": "area112", "bpp": .2}]}
+        for qp in QPS]}
+    row = paper_heldout_mc3.evaluate_clip(
+        _FakeDataset(), 0, cache, {}, {}, object(), _FakeCodec())
+    assert len(row["measurements"]) == 5
+    assert all(m["chosen"] == "area112" for m in row["measurements"])
+    assert all(m["trial"]["correct"] for m in row["measurements"])
+
+
+def test_full_runtime_includes_all_six_candidates(monkeypatch):
+    logits = torch.tensor([[.1, .9]], dtype=torch.float32)
+    feature = torch.ones(1, 4)
+    monkeypatch.setattr(paper_runtime, "measured_prediction",
+                        lambda *_args: ((logits, feature), .001))
+    monkeypatch.setattr(paper_runtime, "select", lambda *_args: 0)
+    analyzers = {model: object() for model in paper_runtime.MODELS}
+    row = paper_runtime.measure_clip(
+        _FakeDataset(), 0, analyzers, _FakeCodec(), {}, {})
+    assert len(row["qps"]) == 5
+    assert all(len(q["candidate_costs"]) == 6 for q in row["qps"])
+    assert row["identity_only_s"] > 0
+    assert row["full_selector_s"] > 0
+    assert row["arm_order"] in (["full", "identity"], ["identity", "full"])
