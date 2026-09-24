@@ -35,24 +35,26 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.codecs.standard import StandardCodec, ffmpeg_available  # noqa: E402
-from src.metrics.bd_rate import bd_rate  # noqa: E402
-from src.metrics.detection import paired_bootstrap_detection_bd  # noqa: E402
-from src.models.importance_tube import feather_protection  # noqa: E402
-from src.models.mask_suppress import (  # noqa: E402
-    dual_region_suppress,
-    gaussian_filter,
-    protect_mask,
-)
-from probe_detection import (  # noqa: E402  (ops/ is on sys.path when run from repo root)
+from probe_detection import (  # ops/ is on sys.path when run as a script
     Detector,
     _coco_box,
     coco_map,
     load_coco,
     scaled_gt,
+)
+
+from src.codecs.standard import StandardCodec, ffmpeg_available
+from src.metrics.bd_rate import bd_rate
+from src.metrics.detection import paired_bootstrap_detection_bd
+from src.models.importance_tube import feather_protection
+from src.models.mask_suppress import (
+    dual_region_suppress,
+    gaussian_filter,
+    protect_mask,
 )
 
 
@@ -99,6 +101,41 @@ def _predictions(det_out: dict, detector: Detector, image_id: int) -> list[dict]
     ]
 
 
+def _rgb_frame(x: torch.Tensor) -> np.ndarray:
+    return (x[0, :, 0].detach().cpu().permute(1, 2, 0).clamp(0, 1)
+            .mul(255).round().byte().numpy())
+
+
+def save_visual_panel(source: torch.Tensor, anchor: torch.Tensor,
+                      trial: torch.Tensor, mask: torch.Tensor, path: Path) -> None:
+    """Same-size, same-QP COCO comparison with a fixed 0..64 error scale."""
+    src, ref, got = (_rgb_frame(x) for x in (source, anchor, trial))
+    if src.shape != ref.shape or src.shape != got.shape:
+        raise ValueError("COCO panel images must have identical spatial shapes")
+    # Brightness is absolute RGB error versus the source; clipped at 64 for a
+    # common display scale across images/codecs. Never normalize per-image.
+    errors = [np.clip(np.mean(np.abs(value.astype(np.int16) - src.astype(np.int16)),
+                              axis=2) * 255 / 64, 0, 255).astype(np.uint8)
+              for value in (ref, got)]
+    region = (mask[0, 0].detach().cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
+    images = [src, ref, got, np.repeat(errors[0][..., None], 3, axis=2),
+              np.repeat(errors[1][..., None], 3, axis=2),
+              np.repeat(region[..., None], 3, axis=2)]
+    titles = ("Source", "Codec only", "ROI background suppress + codec",
+              "Anchor abs error (0..64)", "Treatment abs error (0..64)",
+              "Protected ROI (white)")
+    side = src.shape[0]
+    canvas = Image.new("RGB", (side * 3, (side + 28) * 2), "white")
+    draw = ImageDraw.Draw(canvas)
+    for index, (array, title) in enumerate(zip(images, titles)):
+        col, row = index % 3, index // 3
+        x, y = col * side, row * (side + 28)
+        canvas.paste(Image.fromarray(array, "RGB"), (x, y + 28))
+        draw.text((x + 5, y + 6), title, fill="black")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    canvas.save(path)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--images", required=True)
@@ -139,6 +176,9 @@ def main() -> None:
     ap.add_argument("--bootstrap", type=int, default=0,
                     help="paired image-bootstrap draws (0 skips inline CI)")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--visual-count", type=int, default=0,
+                    help="preselected COCO image IDs per codec for paired PNG panels")
+    ap.add_argument("--visual-qp", type=int, default=40)
     ap.add_argument("--out", default="outputs/probe_bgsuppress")
     a = ap.parse_args()
 
@@ -152,6 +192,10 @@ def main() -> None:
     positive_post_sigmas = [s for s in post_sigmas if s > 0]
     qps = [int(q) for q in a.qps.split(",")]
     codecs = _codec_grid(a.codecs)
+    if a.visual_count < 0:
+        raise ValueError("visual-count must be nonnegative")
+    if a.visual_count and a.visual_qp not in qps:
+        raise ValueError("visual-qp must occur in the QP grid")
     if a.min_margin_px < 0:
         raise ValueError("min_margin_px must be non-negative")
     if a.mask_grid <= 0:
@@ -167,6 +211,8 @@ def main() -> None:
     items = [(i, t.to(device), hw, an) for i, t, hw, an in items]
     gt_by_id = {i: scaled_gt(an, a.size, hw) for i, _, hw, an in items}
     ids = [i for i, _, _, _ in items]
+    visual_ids = set(sorted(ids)[:a.visual_count])
+    visual_rows = []
     print(f"[bg] {len(items)} images at {a.size}px, background={sigmas}, "
           f"roi={roi_sigmas}, post={post_sigmas}@qp>={a.post_min_qp}")
 
@@ -176,7 +222,6 @@ def main() -> None:
     def mAP(pred_list):
         return coco_map(pred_list, gt_by_id, ids, ann_meta)[0]
 
-    from torchvision.ops import nms  # noqa: E402  (only needed for the mask tally)
     masks = {}
     core_cover = []
     for i, t, hw, _ in items:
@@ -223,6 +268,20 @@ def main() -> None:
                     decoded, bpp = sc.compress_decompress_items(xv)
                     encoded.append((base, decoded, float(bpp[0])))
 
+                if i in visual_ids and qp == a.visual_qp:
+                    anchor_entry = next((e for e in encoded if e[0] == "anchor"), None)
+                    trial_entry = next((e for e in encoded if e[0] == "blur4"), None)
+                    if anchor_entry is not None and trial_entry is not None:
+                        panel_path = Path(a.out) / "visuals" / f"{codec_name}_qp{qp}_coco{i}.png"
+                        save_visual_panel(t, anchor_entry[1], trial_entry[1],
+                                          masks[i], panel_path)
+                        visual_rows.append({"image_id": int(i), "codec": codec_name,
+                                            "qp": qp, "arm": "blur4",
+                                            "anchor_bpp": anchor_entry[2],
+                                            "trial_bpp": trial_entry[2],
+                                            "protected_fraction": float(masks[i].mean()),
+                                            "panel": str(panel_path.name)})
+
                 base_predictions = eval_det.predict(torch.cat(
                     [decoded for _, decoded, _ in encoded], dim=0
                 ))
@@ -252,6 +311,15 @@ def main() -> None:
 
     out_dir = Path(a.out)
     out_dir.mkdir(parents=True, exist_ok=True)
+    if a.visual_count:
+        (out_dir / "visuals" / "visual_manifest.json").write_text(
+            json.dumps({"purpose": "qualitative paired illustration only",
+                        "selection": "smallest COCO IDs from the fixed seeded evaluation subset",
+                        "image_ids": sorted(visual_ids), "size": a.size,
+                        "visual_qp": a.visual_qp,
+                        "error_scale": "mean absolute RGB error, clipped to 0..64",
+                        "arms": ["anchor", "blur4"], "rows": visual_rows}, indent=2),
+            encoding="utf-8")
     result = {"n_images": len(items), "size": a.size, "cover": cover,
               "core_cover": float(np.mean(core_cover)), "feather": a.feather,
               "sigmas": sigmas, "roi_sigmas": roi_sigmas,
@@ -269,8 +337,8 @@ def main() -> None:
                 rates.append(float(np.mean([v[0] for v in slot.values()])))
                 aps.append(mAP([p for v in slot.values() for p in v[1]]))
             curves[arm] = {"rate": rates, "mAP": aps}
-            print(f"[bg] {codec_name} {arm:24s} bpp={['%.4f' % r for r in rates]} "
-                  f"mAP={['%.4f' % m for m in aps]}")
+            print(f"[bg] {codec_name} {arm:24s} bpp={[f'{r:.4f}' for r in rates]} "
+                  f"mAP={[f'{m:.4f}' for m in aps]}")
         for arm in arms[1:]:
             curves[arm]["bd_vs_anchor"] = bd_rate(
                 curves["anchor"]["rate"], curves["anchor"]["mAP"],
