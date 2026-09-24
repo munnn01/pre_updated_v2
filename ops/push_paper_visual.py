@@ -35,7 +35,7 @@ def payload(commit: str, account: str, slug: str, task: str) -> tuple[dict, dict
     metadata = {"id": f"{account}/{slug}", "title": slug,
                 "code_file": "notebook.ipynb", "language": "python",
                 "kernel_type": "notebook", "is_private": True,
-                "enable_gpu": True, "enable_internet": True,
+                "enable_gpu": task == "coco", "enable_internet": True,
                 "dataset_sources": DATASETS[task], "kernel_sources": [],
                 "competition_sources": [], "model_sources": []}
     return book, metadata

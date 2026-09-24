@@ -19,7 +19,7 @@ trap finish EXIT
 git clone -q https://github.com/munnn01/test_pre.git "$REPO"
 git -C "$REPO" checkout -q "$REF"
 cd "$REPO"
-python -c 'import torch, torchvision, cv2, PIL; print("torch", torch.__version__, "cuda", torch.cuda.is_available()); assert torch.cuda.is_available()'
+python -c 'import torch, torchvision, cv2, PIL; print("torch", torch.__version__, "cuda", torch.cuda.is_available(), "visual-only CPU run")'
 for candidate in /kaggle/input/kineticscleaned /kaggle/input/datasets/qktttttttttt/kineticscleaned; do
   if [ -d "$candidate" ]; then KIN_ROOT="$candidate"; break; fi
 done
