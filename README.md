@@ -1,4 +1,12 @@
-# pre_updated_v2 — dual-analyzer action recognition
+# Action-recognition compression research and paper validation
+
+This `preprocessing` checkout is the development copy for the paper-validation
+work. The separate `pre_updated_v2` checkout is intentionally unchanged.
+The [paper-validation plan](docs/PAPER_VALIDATION_PLAN.md) specifies the
+follow-up controls, unseen-analyzer test and runtime benchmark. The
+[exploratory 1,000-clip reanalysis](results/paper_validation_1000/README.md)
+compares all fixed candidates and frozen A/B/C policies on the existing V2
+records; it is **not** a fresh holdout.
 
 V2 adds a shared-bitstream selector targeting **both r2plus1d_18 and r3d_18**.
 See [the V2 pilot protocol](docs/RUN_DESIGN_DUAL_CODEC_SEARCH_V2.md),
