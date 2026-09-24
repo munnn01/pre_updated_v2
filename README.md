@@ -1,4 +1,16 @@
-# pre_updated — unified preprocessing for OD + Action Recognition
+# pre_updated_v2 — dual-analyzer action recognition
+
+V2 adds a shared-bitstream selector targeting **both r2plus1d_18 and r3d_18**.
+See [the V2 pilot protocol](docs/RUN_DESIGN_DUAL_CODEC_SEARCH_V2.md),
+[runner](ops/dual_codec_search.py) and [Kaggle cell](kaggle/dual_codec_search_cell.sh).
+Fit/calibration/development are separated; A/B/C share real-codec candidate
+measurements. Target: both analyzers improve and at least one codec reaches
+Top-1 BD-rate below -15% for both. **V2 results are pending, not established.**
+
+The material below and `results/codec_search_ar_confirm_1000` describe inherited
+V1 work. Its large primary-only gain does NOT establish the V2 dual-model target.
+
+## Inherited V1 project
 
 Line riêng cho task **Object Detection** của VCM: ảnh → preprocessing → codec đóng băng
 (All-Intra) → decode → detector đóng băng → mAP. Đích là một con số BD-rate âm trên **trục mAP**

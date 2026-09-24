@@ -48,6 +48,7 @@ class StandardCodec:
         qp: int = 35,
         preset: str = "medium",
         fps: int = 25,
+        strict_decode: bool = False,
     ):
         if codec not in _ENCODER:
             raise ValueError(f"codec must be one of {list(_ENCODER)}")
@@ -55,6 +56,7 @@ class StandardCodec:
         self.qp = qp
         self.preset = preset
         self.fps = fps
+        self.strict_decode = strict_decode
 
     # -- single clip -------------------------------------------------------
     def _encode_decode_clip(
@@ -132,6 +134,8 @@ class StandardCodec:
             raw = np.frombuffer(dec.stdout, dtype=np.uint8)
 
         n = raw.size // (h * w * c)
+        if self.strict_decode and (n != t or raw.size != t * h * w * c):
+            raise ValueError(f"incomplete codec decode: expected {t} frames, got {n}")
         if n == 0:
             recon = clip.copy()
         else:

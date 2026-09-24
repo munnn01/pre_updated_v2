@@ -5,3 +5,4 @@ ops/_push/
 ops/_push_datasets/
 data/index/*.json
 *.pth
+.pytest_cache/
