@@ -4,8 +4,12 @@ V2 adds a shared-bitstream selector targeting **both r2plus1d_18 and r3d_18**.
 See [the V2 pilot protocol](docs/RUN_DESIGN_DUAL_CODEC_SEARCH_V2.md),
 [runner](ops/dual_codec_search.py) and [Kaggle cell](kaggle/dual_codec_search_cell.sh).
 Fit/calibration/development are separated; A/B/C share real-codec candidate
-measurements. Target: both analyzers improve and at least one codec reaches
-Top-1 BD-rate below -15% for both. **V2 results are pending, not established.**
+measurements. The 1,000-clip TEST evaluation is now complete; see
+[the V2 results](results/dual_codec_search_v2_confirm_1000/README.md).
+Both analyzers improve on both codecs, but **neither codec reaches the
+predeclared Top-1 BD-rate below -15% on both analyzers**. These TEST clips
+were previously inspected during V1 work, so this is a paired comparative
+replication, not a fresh independent holdout.
 
 The material below and `results/codec_search_ar_confirm_1000` describe inherited
 V1 work. Its large primary-only gain does NOT establish the V2 dual-model target.
