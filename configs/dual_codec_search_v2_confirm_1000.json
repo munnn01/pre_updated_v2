@@ -1,0 +1,35 @@
+{
+  "experiment": "dual_codec_search_v2_confirm_1000",
+  "scope": "Frozen V2 policies on the previously inspected V1 1000-video TEST sample; paired comparison, not a fresh independent holdout",
+  "pilot_code_commit": "96edbf0ec3b92f09b2956e479cfc41a0f636a303",
+  "dataset": "qktttttttttt/kineticscleaned",
+  "canonical_test_fingerprint_prefix": "30f083f8520a",
+  "sample_config": "configs/codec_search_ar_frozen_v1.json",
+  "test_fingerprint": "aae3888f3ae34d08",
+  "test_clips": 1000,
+  "qps": [30, 35, 40, 45, 50],
+  "candidates": ["identity128", "area112", "area96", "area112_up128", "blur020_128", "blur040_128"],
+  "models": ["r2plus1d_18", "r3d_18"],
+  "frames": 16,
+  "frame_size": 128,
+  "temporal_stride": 2,
+  "preset": "medium",
+  "bootstrap_draws": 2000,
+  "pilot_artifacts": {
+    "h264": {
+      "source_notebook": "https://www.kaggle.com/code/trnhlng/dual-ar-v2-h264-pilot",
+      "risk_model_sha256": "a9b80d9578ab7f74b1da28c45caa15f5f36f36d3c9fb27a69261b915059f4166",
+      "frozen_policy_sha256": "c1cc53880ec320c1f60951adcccd4045fb1ac8881ae3ddfa5d5741d662b82985",
+      "selected_mode": "C"
+    },
+    "h265": {
+      "source_notebook": "https://www.kaggle.com/code/baoancut/dual-ar-v2-h265-pilot",
+      "risk_model_sha256": "7b630bce3638f365048d8d2d4d918cf38d4c0f962a4370e875878e600f66c5c1",
+      "frozen_policy_sha256": "10a97a207506791e6cdf40b6cf30d9521ff97ba3d34a9201dae198f777f3fc1c",
+      "selected_mode": "C"
+    }
+  },
+  "primary_rule": "Both analyzers have Top-1 BD-rate < -15% and BD-accuracy > 0 for at least one codec",
+  "secondary_guard": "Both analyzers' minimum same-QP Top-1 gap >= -0.01",
+  "interpretation": "No policy tuning on TEST; prior V1 TEST inspection and V2 DEV selection prevent a new independent-confirmation claim"
+}

@@ -1,0 +1,47 @@
+{
+  "manifest_sha256": "18138ad1f8946c23ada90185b37be8ccdf87a9b9b732985d03ed42bc66feba0f",
+  "risk_sha256": "9fe9e7c96ce339883f410b7b96f37ac01bcc9b4bf2b65febb002593919e26a93",
+  "policies": {
+    "A": {
+      "mode": "A",
+      "cross": {
+        "kl": 0.1,
+        "feature": 0.05,
+        "confidence": 1.01
+      }
+    },
+    "B": {
+      "mode": "B",
+      "primary": {
+        "kl": 0.1,
+        "feature": 0.05,
+        "confidence": 0.6
+      },
+      "cross": {
+        "kl": 0.1,
+        "feature": 0.05,
+        "confidence": 1.01
+      }
+    },
+    "C": {
+      "mode": "C",
+      "primary": {
+        "kl": 0.1,
+        "feature": 0.05,
+        "confidence": 0.6
+      },
+      "risk_low_qp": 0.2,
+      "risk_high_qp": 0.1
+    }
+  },
+  "selected_policy": {
+    "mode": "C",
+    "primary": {
+      "kl": 0.1,
+      "feature": 0.05,
+      "confidence": 0.6
+    },
+    "risk_low_qp": 0.2,
+    "risk_high_qp": 0.1
+  }
+}
