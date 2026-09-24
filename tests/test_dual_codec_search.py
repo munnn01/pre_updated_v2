@@ -171,6 +171,7 @@ def test_duplicate_push_guard(monkeypatch, message, code, allowed):
 
 @pytest.mark.parametrize("listing,allowed", [
     ("ref,title\naccount/older,older\n", True),
+    ("ref,title\naccount/older,older\n,\n", True),
     ("ref,title\naccount/pilot,pilot\n", False),
     ("ref,title\nanother/older,older\n", False),
     ("ref,title\n", False),

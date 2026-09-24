@@ -44,7 +44,9 @@ def require_inactive(handle, environment):
             reader = csv.DictReader(io.StringIO(listing.stdout))
             if not reader.fieldnames or "ref" not in reader.fieldnames:
                 raise RuntimeError("unexpected authenticated notebook listing")
-            refs = [r["ref"] for r in reader]
+            # Kaggle CSV sometimes includes empty spacer rows; only real refs
+            # can establish ownership of the authenticated account.
+            refs = [r["ref"] for r in reader if r.get("ref")]
             if any(not ref.startswith(owner + "/") for ref in refs):
                 raise RuntimeError("token belongs to a different account")
             owned.update(refs)
